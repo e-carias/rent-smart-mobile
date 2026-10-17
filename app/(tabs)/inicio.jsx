@@ -103,13 +103,13 @@ export default function Inicio() {
           onPress={() => router.push(`/reserva/${proxima.id}`)}
           style={({ pressed }) => [estilos.proxima, pressed && { opacity: 0.9 }]}
           accessibilityRole="button"
-          accessibilityLabel={`Próxima reserva: ${proxima.vehiculo}`}
+          accessibilityLabel={`Próxima reserva: ${proxima.vehiculo.marca} ${proxima.vehiculo.modelo}`}
         >
           <View style={estilos.proximaEncabezado}>
             <Text style={estilos.proximaTitulo}>Tu próxima reserva</Text>
             <Etiqueta estado={proxima.estado} />
           </View>
-          <Text style={estilos.proximaVehiculo}>{proxima.vehiculo}</Text>
+          <Text style={estilos.proximaVehiculo}>{proxima.vehiculo.marca} {proxima.vehiculo.modelo}</Text>
           <Text style={estilos.proximaFecha}>
             Entrega el {fechaLarga(proxima.fechaInicio)} en {proxima.lugarEntrega}
           </Text>
