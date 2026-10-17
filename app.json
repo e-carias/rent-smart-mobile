@@ -1,0 +1,39 @@
+{
+  "expo": {
+    "name": "RENT SMART",
+    "slug": "rent-smart-movil",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "scheme": "rentsmart",
+    "userInterfaceStyle": "light",
+    "newArchEnabled": true,
+    "splash": {
+      "image": "./assets/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#1D4ED8"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "sv.edu.udb.rentsmart"
+    },
+    "android": {
+      "package": "sv.edu.udb.rentsmart",
+      "adaptiveIcon": {
+        "backgroundColor": "#1D4ED8",
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "backgroundImage": "./assets/android-icon-background.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png"
+      }
+    },
+    "web": {
+      "bundler": "metro",
+      "output": "static",
+      "favicon": "./assets/favicon.png"
+    },
+    "plugins": ["expo-router"],
+    "experiments": {
+      "typedRoutes": false
+    }
+  }
+}

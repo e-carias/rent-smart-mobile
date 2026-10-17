@@ -1,0 +1,27 @@
+# Dependencias
+node_modules/
+
+# Expo
+.expo/
+dist/
+web-build/
+expo-env.d.ts
+
+# Compilaciones nativas
+android/
+ios/
+*.apk
+*.aab
+*.ipa
+
+# Variables de entorno (la URL del API es local de cada máquina)
+.env
+.env.local
+!.env.example
+
+# Sistema operativo y editores
+.DS_Store
+Thumbs.db
+*.log
+.vscode/
+.idea/
