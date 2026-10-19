@@ -21,7 +21,7 @@ function TarjetaReserva({ reserva, onPress }) {
       </View>
 
       <Text style={estilos.vehiculo} numberOfLines={1}>
-        {reserva.vehiculo || `Vehículo #${reserva.vehiculoId}`}
+        {reserva.vehiculo ? `${reserva.vehiculo.marca} ${reserva.vehiculo.modelo}` : `Vehículo #${reserva.vehiculoId}`}
       </Text>
 
       <View style={estilos.fila}>

@@ -98,7 +98,9 @@ export default function DetalleReserva() {
         <Etiqueta estado={reserva.estado} />
       </View>
 
-      <Text style={estilos.vehiculo}>{reserva.vehiculo || `Vehículo #${reserva.vehiculoId}`}</Text>
+      <Text style={estilos.vehiculo}>
+        {reserva.vehiculo ? `${reserva.vehiculo.marca} ${reserva.vehiculo.modelo}` : `Vehículo #${reserva.vehiculoId}`}
+      </Text>
       {reserva.placa ? <Text style={estilos.placa}>Placa {reserva.placa}</Text> : null}
 
       {reserva.pendienteDeEnvio && (
