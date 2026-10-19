@@ -35,8 +35,6 @@ export default function Inicio() {
   const cargar = useCallback(async () => {
     setError(null);
     try {
-      // Las dos peticiones son independientes: en paralelo tarda la más
-      // lenta, no la suma de ambas.
       const [listaVehiculos, listaReservas] = await Promise.all([
         VehiculoService.obtenerVehiculos({ estado: 'disponible' }),
         ReservaService.obtenerReservas(),
@@ -51,8 +49,6 @@ export default function Inicio() {
     }
   }, []);
 
-  // useFocusEffect recarga al volver a la pestaña, no solo al montarla: si el
-  // usuario acaba de crear una reserva, al regresar aquí ya la ve.
   useFocusEffect(
     useCallback(() => {
       cargar();
