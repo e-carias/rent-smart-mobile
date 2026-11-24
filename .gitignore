@@ -1,27 +1,48 @@
+# ---------------------------------------------------------------------------
+#  RENT SMART · Exclusiones comunes a las dos aplicaciones
+# ---------------------------------------------------------------------------
+# Cada carpeta tiene además su propio .gitignore con lo específico de su
+# herramienta (web/.gitignore para Next.js, mobile/.gitignore para Expo).
+
 # Dependencias
 node_modules/
 
-# Expo
-.expo/
-dist/
-web-build/
-expo-env.d.ts
-
-# Compilaciones nativas
-android/
-ios/
-*.apk
-*.aab
-*.ipa
-
-# Variables de entorno (la URL del API es local de cada máquina)
+# Variables de entorno: NUNCA se versionan. Solo los archivos de ejemplo.
 .env
-.env.local
+.env.*
 !.env.example
+
+# Credenciales de servicio de Firebase
+serviceAccountKey.json
+google-services.json
+GoogleService-Info.plist
+*.keystore
+*.jks
+
+# Compilados y cachés
+.next/
+dist/
+build/
+coverage/
+.expo/
+.turbo/
+*.tsbuildinfo
+
+# Herramientas de despliegue
+.vercel
+.firebase/
+firebase-debug.log
 
 # Sistema operativo y editores
 .DS_Store
 Thumbs.db
-*.log
-.vscode/
+*.swp
 .idea/
+.vscode/*
+!.vscode/extensions.json
+
+# Registros
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+*.log

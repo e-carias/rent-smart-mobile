@@ -1,0 +1,63 @@
+{
+  "name": "rent-smart-movil",
+  "version": "2.0.0",
+  "description": "Aplicación móvil de RENT SMART con Firebase Authentication y Cloud Firestore",
+  "main": "expo-router/entry",
+  "private": true,
+  "scripts": {
+    "start": "expo start",
+    "android": "expo start --android",
+    "ios": "expo start --ios",
+    "web": "expo start --web",
+    "limpiar": "expo start --clear",
+    "test": "jest",
+    "test:ci": "jest --ci --runInBand",
+    "test:informe": "node scripts/informe-pruebas.mjs",
+    "seed": "node scripts/cargar-catalogo.mjs"
+  },
+  "dependencies": {
+    "@expo/vector-icons": "^15.1.1",
+    "@react-native-async-storage/async-storage": "2.2.0",
+    "@react-native-community/datetimepicker": "9.2.1",
+    "expo": "57.0.29",
+    "expo-auth-session": "57.0.16",
+    "expo-constants": "57.0.22",
+    "expo-crypto": "57.0.4",
+    "expo-linking": "57.0.13",
+    "expo-router": "57.0.27",
+    "expo-status-bar": "57.0.1",
+    "expo-web-browser": "57.0.3",
+    "firebase": "13.2.0",
+    "react": "19.2.3",
+    "react-dom": "19.2.3",
+    "react-native": "0.86.3",
+    "react-native-gesture-handler": "2.32.0",
+    "react-native-reanimated": "4.5.1",
+    "react-native-safe-area-context": "5.7.0",
+    "react-native-screens": "4.26.0",
+    "react-native-web": "0.21.4",
+    "react-native-worklets": "0.10.4"
+  },
+  "devDependencies": {
+    "@testing-library/react-native": "13.3.3",
+    "jest": "29.7.0",
+    "jest-expo": "57.0.6",
+    "react-test-renderer": "19.2.3"
+  },
+  "jest": {
+    "preset": "jest-expo",
+    "setupFiles": [
+      "<rootDir>/pruebas/configuracion.js"
+    ],
+    "transformIgnorePatterns": [
+      "node_modules/(?!((jest-)?react-native|@react-native(-community)?|expo(nent)?|@expo(nent)?/.*|@expo-google-fonts/.*|react-navigation|@react-navigation/.*|@unimodules/.*|unimodules|sentry-expo|native-base|react-native-svg|firebase|@firebase/.*))"
+    ],
+    "collectCoverageFrom": [
+      "src/**/*.{js,jsx}",
+      "!src/datos/**"
+    ]
+  },
+  "engines": {
+    "node": ">=20.19.4"
+  }
+}
