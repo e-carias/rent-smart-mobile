@@ -1,0 +1,13 @@
+feat(base): estructura del monorepo, configuracion de Firebase y reglas de seguridad
+
+- Monorepo con las dos aplicaciones: web/ (Next.js 16) y mobile/ (Expo 57).
+- Inicializacion de Firebase en un unico archivo por aplicacion; ninguna
+  pantalla importa firebase/* directamente.
+- firestore.rules compartido: autorizacion por rol en el servidor, no en el
+  cliente. Incluye las cinco colecciones y firebase.json para desplegarlas.
+- Reglas de negocio puras en lib/negocio.js (traslape semiabierto, tarifa con
+  descuento por volumen e IVA, maquina de estados), compartidas por ambas
+  plataformas.
+- Capa de progreso y errores globales que sustituye al bus del antiguo apiClient.
+- README de la raiz, de cada aplicacion, licencia Creative Commons BY-NC-SA 4.0
+  y .gitignore que excluye todo archivo .env real.

@@ -1,0 +1,78 @@
+rules_version = '2';
+
+// Reglas de seguridad de Firestore para RENT SMART (las usan la web y la app móvil)
+// Aquí es donde de verdad se protegen los datos, no en el código de la app
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // true si hay alguien logueado
+    function autenticado() {
+      return request.auth != null;
+    }
+
+    // true si el que está logueado es dueño de ese uid
+    function esDueno(uid) {
+      return autenticado() && request.auth.uid == uid;
+    }
+
+    // revisa el rol del usuario en su perfil (colección usuarios)
+    function tieneRol(valor) {
+      return autenticado()
+        && exists(/databases/$(database)/documents/usuarios/$(request.auth.uid))
+        && get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data.rol == valor;
+    }
+
+    function esAdministrador() {
+      return tieneRol('administrador');
+    }
+
+    // admin u operador de mostrador
+    function esPersonal() {
+      return tieneRol('administrador') || tieneRol('operador');
+    }
+
+    // --- USUARIOS ---
+    match /usuarios/{uid} {
+      allow read: if esDueno(uid) || esPersonal(); // cada quien ve lo suyo, el personal ve todo
+      allow create: if esDueno(uid) && request.resource.data.rol == 'cliente'; // todo usuario nuevo entra como cliente
+      allow update: if (esDueno(uid) && request.resource.data.rol == resource.data.rol) // no te puedes subir el rol tú mismo
+                    || esAdministrador();
+      allow delete: if false; // no se borran usuarios
+    }
+
+    // --- VEHÍCULOS ---
+    match /vehiculos/{id} {
+      allow read: if autenticado(); // el catálogo lo ve cualquiera logueado
+      allow write: if esAdministrador(); // solo el admin agrega/edita/quita
+    }
+
+    // --- RESERVAS ---
+    match /reservas/{id} {
+      allow read: if autenticado(); // necesario para calcular disponibilidad de fechas
+      allow create: if (esDueno(request.resource.data.uid) || esPersonal()) // solo reservas a tu propio nombre
+                    && request.resource.data.estado == 'pendiente' // siempre empiezan pendientes
+                    && request.resource.data.total is number
+                    && request.resource.data.total >= 0;
+      allow update: if (esDueno(resource.data.uid)
+                        && request.resource.data.uid == resource.data.uid) // no te puedes cambiar el dueño
+                    || esPersonal();
+      allow delete: if esAdministrador(); // solo debería pasar con reservas ya canceladas
+    }
+
+    // --- CONTRATOS ---
+    match /contratos/{id} {
+      allow read: if esDueno(resource.data.uid) || esPersonal();
+      allow create: if esPersonal() && request.resource.data.estado == 'vigente'; // lo emite el personal
+      allow update: if esPersonal();
+      allow delete: if false; // un contrato se anula, no se borra
+    }
+
+    // --- ACTIVIDAD (historial) ---
+    match /actividad/{id} {
+      allow read: if esDueno(resource.data.uid) || esPersonal();
+      allow create: if esDueno(request.resource.data.uid) || esPersonal();
+      allow update, delete: if false; // es historial, no se toca después
+    }
+  }
+}

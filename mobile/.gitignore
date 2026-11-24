@@ -1,0 +1,31 @@
+# Dependencias
+node_modules/
+
+# Expo
+.expo/
+dist/
+web-build/
+expo-env.d.ts
+
+# Compilaciones nativas
+android/
+ios/
+*.apk
+*.aab
+*.ipa
+
+# Variables de entorno: la configuración de Firebase es de cada quien
+# y SEED_PASSWORD no debe salir del equipo.
+.env
+.env.local
+!.env.example
+
+# Informes y cobertura generados
+coverage/
+
+# Sistema operativo y editores
+.DS_Store
+Thumbs.db
+*.log
+.vscode/
+.idea/
