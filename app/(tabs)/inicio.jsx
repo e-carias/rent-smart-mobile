@@ -24,7 +24,7 @@ import { colores, espacio, radio, sombra } from '../../src/tema';
 
 export default function Inicio() {
   const router = useRouter();
-  const { usuario } = useAuth();
+  const { usuario, uid } = useAuth();
 
   const [vehiculos, setVehiculos] = useState([]);
   const [reservas, setReservas] = useState([]);
@@ -35,11 +35,9 @@ export default function Inicio() {
   const cargar = useCallback(async () => {
     setError(null);
     try {
-      // Las dos peticiones son independientes: en paralelo tarda la más
-      // lenta, no la suma de ambas.
       const [listaVehiculos, listaReservas] = await Promise.all([
         VehiculoService.obtenerVehiculos({ estado: 'disponible' }),
-        ReservaService.obtenerReservas(),
+        ReservaService.obtenerReservas(uid),
       ]);
       setVehiculos(listaVehiculos || []);
       setReservas(listaReservas || []);
@@ -49,10 +47,8 @@ export default function Inicio() {
       setCargando(false);
       setRefrescando(false);
     }
-  }, []);
+  }, [uid]);
 
-  // useFocusEffect recarga al volver a la pestaña, no solo al montarla: si el
-  // usuario acaba de crear una reserva, al regresar aquí ya la ve.
   useFocusEffect(
     useCallback(() => {
       cargar();

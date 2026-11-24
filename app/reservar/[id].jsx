@@ -27,7 +27,7 @@ import { colores, espacio, radio, sombra } from '../../src/tema';
 export default function NuevaReserva() {
   const { id } = useLocalSearchParams();
   const router = useRouter();
-  const { cliente, usuario } = useAuth();
+  const { uid } = useAuth();
 
   const [vehiculo, setVehiculo] = useState(null);
   const [cargando, setCargando] = useState(true);
@@ -80,7 +80,6 @@ export default function NuevaReserva() {
 
     const datos = {
       vehiculoId: vehiculo.id,
-      clienteId: cliente?.id ?? usuario?.clienteId ?? usuario?.id,
       fechaInicio,
       fechaFin,
       lugarEntrega,
@@ -93,7 +92,7 @@ export default function NuevaReserva() {
 
     setEnviando(true);
     try {
-      const reserva = await ReservaService.crearReserva(datos);
+      const reserva = await ReservaService.crearReserva(uid, datos);
 
       Alert.alert(
         'Reserva creada',
@@ -101,9 +100,8 @@ export default function NuevaReserva() {
         [{ text: 'Ver mis reservas', onPress: () => router.replace('/(tabs)/reservas') }]
       );
     } catch (e) {
-      // 409 = el vehículo ya está tomado en esas fechas.
+      // reserva/traslape = el vehículo ya está tomado en esas fechas.
       setMensaje(e.message);
-      if (e.errores) setErrores(e.errores);
     } finally {
       setEnviando(false);
     }

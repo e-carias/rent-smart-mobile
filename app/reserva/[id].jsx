@@ -10,6 +10,7 @@ import { Alert, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 
+import { useAuth } from '../../src/contexto/AuthContext';
 import ReservaService from '../../src/servicios/reservaService';
 import { dinero, fechaLarga, textoEstado } from '../../src/lib/formato';
 import { PORCENTAJE_DEPOSITO } from '../../src/lib/negocio';
@@ -36,6 +37,7 @@ function Dato({ icono, etiqueta, valor }) {
 export default function DetalleReserva() {
   const { id } = useLocalSearchParams();
   const router = useRouter();
+  const { uid } = useAuth();
 
   const [reserva, setReserva] = useState(null);
   const [cargando, setCargando] = useState(true);
@@ -73,7 +75,7 @@ export default function DetalleReserva() {
           onPress: async () => {
             setCancelando(true);
             try {
-              await ReservaService.cancelarReserva(reserva.id, 'Cancelada por el cliente desde la app.');
+              await ReservaService.cancelarReserva(uid, reserva.id);
               await cargar();
             } catch (e) {
               Alert.alert('No se pudo cancelar', e.message);
@@ -98,7 +100,9 @@ export default function DetalleReserva() {
         <Etiqueta estado={reserva.estado} />
       </View>
 
-      <Text style={estilos.vehiculo}>{reserva.vehiculo || `Vehículo #${reserva.vehiculoId}`}</Text>
+      <Text style={estilos.vehiculo}>
+        {reserva.vehiculo ? `${reserva.vehiculo.marca} ${reserva.vehiculo.modelo}` : `Vehículo #${reserva.vehiculoId}`}
+      </Text>
       {reserva.placa ? <Text style={estilos.placa}>Placa {reserva.placa}</Text> : null}
 
       {reserva.pendienteDeEnvio && (

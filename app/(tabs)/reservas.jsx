@@ -10,6 +10,7 @@ import { useCallback, useMemo, useState } from 'react';
 import { FlatList, Pressable, RefreshControl, StyleSheet, Text, View } from 'react-native';
 import { useFocusEffect, useRouter } from 'expo-router';
 
+import { useAuth } from '../../src/contexto/AuthContext';
 import ReservaService from '../../src/servicios/reservaService';
 import TarjetaReserva from '../../src/componentes/TarjetaReserva';
 import AvisoOrigen from '../../src/componentes/AvisoOrigen';
@@ -25,6 +26,7 @@ const PESTANAS = [
 
 export default function Reservas() {
   const router = useRouter();
+  const { uid } = useAuth();
 
   const [reservas, setReservas] = useState([]);
   const [pestana, setPestana] = useState('activas');
@@ -35,14 +37,14 @@ export default function Reservas() {
   const cargar = useCallback(async () => {
     setError(null);
     try {
-      setReservas((await ReservaService.obtenerReservas()) || []);
+      setReservas((await ReservaService.obtenerReservas(uid)) || []);
     } catch (e) {
       setError(e.message);
     } finally {
       setCargando(false);
       setRefrescando(false);
     }
-  }, []);
+  }, [uid]);
 
   useFocusEffect(
     useCallback(() => {

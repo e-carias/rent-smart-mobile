@@ -1,112 +1,238 @@
 /**
- * Servicio de reservas.
+ * Reservas en Cloud Firestore, asociadas al usuario autenticado.
  *
- * Mismas rutas que la versión web. Las reservas creadas sin conexión se
- * guardan en el teléfono con AsyncStorage y se marcan con `pendienteDeEnvio`,
- * para que el usuario vea lo que hizo y sepa que todavía no llegó al servidor.
+ * Cada documento de `reservas` guarda el campo `uid` con el identificador que
+ * emite Firebase Authentication. Las reglas de seguridad comparan ese campo
+ * con `request.auth.uid`, de modo que un cliente solo puede leer y modificar
+ * las suyas: la restricción se aplica en el servidor y no depende de que la
+ * aplicación se comporte bien (Google, 2025b).
+ *
+ * La verificación de disponibilidad y el cálculo de la tarifa conservan las
+ * mismas reglas de la versión web; lo que cambió es dónde se guardan.
  */
 
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import apiClient from './apiClient';
+import {
+  collection, doc, addDoc, getDoc, getDocs, updateDoc,
+  query, where, orderBy, serverTimestamp,
+} from 'firebase/firestore';
+
+import { obtenerDb, COLECCIONES } from '../firebase/configuracion';
 import { conRespaldo } from './origenDatos';
-import { calcularTarifa } from '../lib/negocio';
-import { hoy } from '../lib/formato';
+import { calcularTarifa, ESTADOS_QUE_OCUPAN, hayTraslape } from '../lib/negocio';
 import { RESERVAS, VEHICULOS } from '../datos/demo';
+import ActividadService from './actividadService';
 
-const CLAVE_LOCALES = 'rentsmart.reservas.locales';
+/** Transiciones permitidas, idénticas a las de la versión web. */
+export const TRANSICIONES = {
+  pendiente: ['confirmada', 'cancelada'],
+  confirmada: ['en_curso', 'cancelada'],
+  en_curso: ['finalizada'],
+  finalizada: [],
+  cancelada: [],
+};
 
-async function leerLocales() {
-  try {
-    const crudo = await AsyncStorage.getItem(CLAVE_LOCALES);
-    return crudo ? JSON.parse(crudo) : [];
-  } catch {
-    return [];
+export function puedeTransicionar(desde, hacia) {
+  return (TRANSICIONES[desde] || []).includes(hacia);
+}
+
+export class ErrorReserva extends Error {
+  constructor(mensaje, codigo = 'reserva/invalida') {
+    super(mensaje);
+    this.name = 'ErrorReserva';
+    this.codigo = codigo;
   }
 }
 
-async function guardarLocal(reserva) {
-  try {
-    const locales = await leerLocales();
-    locales.unshift(reserva);
-    await AsyncStorage.setItem(CLAVE_LOCALES, JSON.stringify(locales));
-  } catch {
-    // Si el almacenamiento falla, la reserva simplemente no se recuerda.
-  }
+/** Convierte un documento de Firestore a la forma que usan las pantallas. */
+export function mapearReserva(documento) {
+  const d = documento.data();
+  return {
+    id: documento.id,
+    uid: d.uid,
+    codigo: d.codigo,
+    vehiculoId: d.vehiculoId,
+    // Se guarda el nombre del vehículo junto a la reserva. Sin esta copia,
+    // la pantalla de detalle mostraba "undefined undefined" cuando el
+    // catálogo no se había cargado todavía.
+    vehiculo: d.vehiculo ?? '',
+    placa: d.placa ?? '',
+    fechaInicio: d.fechaInicio,
+    fechaFin: d.fechaFin,
+    dias: Number(d.dias ?? 0),
+    tarifaDiaria: Number(d.tarifaDiaria ?? 0),
+    porcentajeDescuento: Number(d.porcentajeDescuento ?? 0),
+    descuento: Number(d.descuento ?? 0),
+    subtotal: Number(d.subtotal ?? 0),
+    impuesto: Number(d.impuesto ?? 0),
+    total: Number(d.total ?? 0),
+    deposito: Number(d.deposito ?? 0),
+    estado: d.estado ?? 'pendiente',
+    lugarEntrega: d.lugarEntrega ?? '',
+    observaciones: d.observaciones ?? '',
+    creadoEn: d.creadoEn?.toDate?.() ?? null,
+  };
 }
 
-/** Añade los datos del vehículo a una reserva que solo trae el id. */
-function completarVehiculo(reserva) {
-  if (reserva.vehiculo) return reserva;
-  const v = VEHICULOS.find((x) => x.id === Number(reserva.vehiculoId));
-  return v
-    ? { ...reserva, vehiculo: `${v.marca} ${v.modelo}`, placa: v.placa }
-    : reserva;
+function coleccion() {
+  return collection(obtenerDb(), COLECCIONES.reservas);
+}
+
+/** Código legible para el usuario: RS- más los últimos seis dígitos del tiempo. */
+export function generarCodigo() {
+  return `RS-${String(Date.now()).slice(-6)}`;
 }
 
 export const ReservaService = {
-  /** Reservas de un cliente, de la más reciente a la más antigua. */
-  async obtenerReservas(filtros = {}) {
-    const delServidor = await conRespaldo(
-      () => apiClient.get('/reservas', { params: filtros }),
-      () => RESERVAS.filter((r) => !filtros.estado || r.estado === filtros.estado)
-    );
+  /** Reservas del usuario autenticado, de la más reciente a la más antigua. */
+  obtenerReservas(uid, filtros = {}) {
+    return conRespaldo(async () => {
+      const restricciones = [where('uid', '==', uid)];
+      if (filtros.estado) restricciones.push(where('estado', '==', filtros.estado));
+      restricciones.push(orderBy('fechaInicio', 'desc'));
 
-    const locales = await leerLocales();
-    return [...locales, ...(delServidor || [])].map(completarVehiculo);
+      const instantanea = await getDocs(query(coleccion(), ...restricciones));
+      return instantanea.docs.map(mapearReserva);
+    }, () => RESERVAS.filter((r) => !filtros.estado || r.estado === filtros.estado));
   },
 
-  async obtenerReserva(id) {
-    const locales = await leerLocales();
-    const local = locales.find((r) => String(r.id) === String(id));
-    if (local) return completarVehiculo(local);
-
-    const reserva = await conRespaldo(
-      () => apiClient.get(`/reservas/${id}`),
-      () => RESERVAS.find((r) => String(r.id) === String(id)) || null
-    );
-    return reserva ? completarVehiculo(reserva) : null;
+  obtenerReserva(id) {
+    return conRespaldo(async () => {
+      const instantanea = await getDoc(doc(obtenerDb(), COLECCIONES.reservas, String(id)));
+      return instantanea.exists() ? mapearReserva(instantanea) : null;
+    }, () => RESERVAS.find((r) => String(r.id) === String(id)) || null);
   },
 
   /**
-   * Crear una reserva.
-   *
-   * Un 409 significa que el vehículo ya está tomado en esas fechas: es una
-   * respuesta válida del servidor y debe llegar a la pantalla, no caer al
-   * respaldo. Solo un fallo de red activa el guardado local.
+   * Comprueba que el vehículo esté libre en el rango solicitado.
+   * Se traen las reservas que ocupan ese vehículo y se compara en memoria:
+   * Firestore no admite dos filtros de rango sobre campos distintos, y el
+   * número de reservas por unidad es pequeño.
    */
-  async crearReserva(datos) {
-    try {
-      return await apiClient.post('/reservas', datos);
-    } catch (e) {
-      if (!e.esFalloDeRed) throw e;
+  async verificarDisponibilidad(vehiculoId, fechaInicio, fechaFin, exceptoId = null) {
+    const instantanea = await getDocs(query(
+      coleccion(),
+      where('vehiculoId', '==', String(vehiculoId)),
+      where('estado', 'in', ESTADOS_QUE_OCUPAN)
+    ));
 
-      const vehiculo = VEHICULOS.find((v) => v.id === Number(datos.vehiculoId));
-      const tarifa = calcularTarifa(vehiculo?.precioPorDia || 0, datos.fechaInicio, datos.fechaFin);
-      const consecutivo = Date.now() % 100000;
+    const conflicto = instantanea.docs
+      .map(mapearReserva)
+      .filter((r) => String(r.id) !== String(exceptoId))
+      .find((r) => hayTraslape(fechaInicio, fechaFin, r.fechaInicio, r.fechaFin));
 
-      const reserva = {
-        id: `local-${consecutivo}`,
-        codigo: `RS-L${String(consecutivo).padStart(5, '0')}`,
-        ...datos,
-        ...tarifa,
-        estado: 'pendiente',
-        fechaCreacion: hoy(),
-        pendienteDeEnvio: true,
-      };
+    return conflicto
+      ? { disponible: false, motivo: `El vehículo ya está reservado del ${conflicto.fechaInicio} al ${conflicto.fechaFin}.`, conflicto }
+      : { disponible: true, motivo: null, conflicto: null };
+  },
 
-      await guardarLocal(reserva);
-      return completarVehiculo(reserva);
+  /**
+   * Crea la reserva. El total se calcula aquí con la misma fórmula que
+   * muestra la pantalla, de modo que el importe que se guarda es el que el
+   * usuario vio antes de confirmar.
+   */
+  async crearReserva(uid, datos) {
+    if (!uid) throw new ErrorReserva('Debes iniciar sesión para reservar.', 'reserva/sin-sesion');
+
+    const vehiculoId = String(datos.vehiculoId);
+
+    const vehiculoDoc = await getDoc(doc(obtenerDb(), COLECCIONES.vehiculos, vehiculoId));
+    if (!vehiculoDoc.exists()) {
+      throw new ErrorReserva('El vehículo ya no está disponible.', 'reserva/vehiculo-inexistente');
     }
+    const vehiculo = vehiculoDoc.data();
+
+    if (vehiculo.estado !== 'disponible') {
+      throw new ErrorReserva('El vehículo no está disponible para alquiler.', 'reserva/no-disponible');
+    }
+
+    const disponibilidad = await this.verificarDisponibilidad(
+      vehiculoId, datos.fechaInicio, datos.fechaFin
+    );
+    if (!disponibilidad.disponible) {
+      throw new ErrorReserva(disponibilidad.motivo, 'reserva/traslape');
+    }
+
+    const tarifa = calcularTarifa(vehiculo.precioPorDia, datos.fechaInicio, datos.fechaFin);
+
+    const reserva = {
+      uid,
+      codigo: generarCodigo(),
+      vehiculoId,
+      vehiculo: `${vehiculo.marca} ${vehiculo.modelo}`.trim(),
+      placa: vehiculo.placa ?? '',
+      fechaInicio: datos.fechaInicio,
+      fechaFin: datos.fechaFin,
+      ...tarifa,
+      estado: 'pendiente',
+      lugarEntrega: String(datos.lugarEntrega || '').trim(),
+      observaciones: String(datos.observaciones || '').trim(),
+      creadoEn: serverTimestamp(),
+    };
+
+    const referencia = await addDoc(coleccion(), reserva);
+
+    await ActividadService.registrar(uid, {
+      accion: 'reserva_creada',
+      descripcion: `Reserva ${reserva.codigo} de ${reserva.vehiculo} por ${reserva.dias} día(s).`,
+      reservaId: referencia.id,
+      monto: reserva.total,
+    });
+
+    return { id: referencia.id, ...reserva, creadoEn: new Date() };
   },
 
-  /** Cancelar una reserva (transición pendiente/confirmada -> cancelada). */
-  cancelarReserva(id, motivo = '') {
-    return apiClient.patch(`/reservas/${id}`, { estado: 'cancelada', observaciones: motivo });
+  /** Cambia el estado respetando la máquina de estados del negocio. */
+  async cambiarEstado(uid, id, nuevoEstado, motivo = '') {
+    const referencia = doc(obtenerDb(), COLECCIONES.reservas, String(id));
+    const instantanea = await getDoc(referencia);
+
+    if (!instantanea.exists()) throw new ErrorReserva('La reserva no existe.', 'reserva/inexistente');
+
+    const actual = mapearReserva(instantanea);
+    if (actual.uid !== uid) {
+      throw new ErrorReserva('No puedes modificar una reserva de otro usuario.', 'reserva/ajena');
+    }
+    if (!puedeTransicionar(actual.estado, nuevoEstado)) {
+      throw new ErrorReserva(
+        `No se puede pasar de ${actual.estado} a ${nuevoEstado}.`,
+        'reserva/transicion-invalida'
+      );
+    }
+
+    await updateDoc(referencia, {
+      estado: nuevoEstado,
+      observaciones: motivo ? motivo : actual.observaciones,
+      actualizadoEn: serverTimestamp(),
+    });
+
+    await ActividadService.registrar(uid, {
+      accion: `reserva_${nuevoEstado}`,
+      descripcion: `Reserva ${actual.codigo}: ${actual.estado} → ${nuevoEstado}.`,
+      reservaId: String(id),
+    });
+
+    return { ...actual, estado: nuevoEstado };
   },
 
-  /** Solo para pruebas: vacía las reservas guardadas en el teléfono. */
-  async limpiarLocales() {
-    await AsyncStorage.removeItem(CLAVE_LOCALES);
+  cancelarReserva(uid, id, motivo = 'Cancelada por el cliente desde la aplicación.') {
+    return this.cambiarEstado(uid, id, 'cancelada', motivo);
+  },
+
+  /** Totales para la pantalla de inicio. */
+  async resumen(uid) {
+    const reservas = await this.obtenerReservas(uid);
+    const activas = reservas.filter((r) => ESTADOS_QUE_OCUPAN.includes(r.estado));
+    const contratado = reservas
+      .filter((r) => r.estado !== 'cancelada')
+      .reduce((suma, r) => suma + Number(r.total || 0), 0);
+
+    return {
+      total: reservas.length,
+      activas: activas.length,
+      contratado,
+      proxima: [...activas].sort((a, b) => String(a.fechaInicio).localeCompare(String(b.fechaInicio)))[0] || null,
+      reservas,
+    };
   },
 };
 

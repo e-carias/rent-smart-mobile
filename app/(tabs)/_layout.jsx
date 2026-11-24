@@ -18,7 +18,7 @@ export default function LayoutPestanas() {
         tabBarActiveTintColor: colores.primario,
         tabBarInactiveTintColor: colores.textoTenue,
         tabBarStyle: { borderTopColor: colores.borde, height: 60, paddingBottom: 6, paddingTop: 6 },
-        tabBarLabelStyle: { fontSize: 11, fontWeight: '600' },
+        tabBarLabelStyle: { fontSize: 10, fontWeight: '600' },
         headerStyle: { backgroundColor: colores.superficie },
         headerTitleStyle: { fontWeight: '700', color: colores.texto },
         sceneStyle: { backgroundColor: colores.fondo },
@@ -44,6 +44,15 @@ export default function LayoutPestanas() {
           title: 'Mis reservas',
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="calendar-outline" size={size} color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="historial"
+        options={{
+          title: 'Historial',
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="time-outline" size={size} color={color} />
           ),
         }}
       />
